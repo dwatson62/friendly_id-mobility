@@ -7,11 +7,6 @@ module FriendlyId
     class << self
       def setup(model_class)
         model_class.friendly_id_config.use :slugged
-        if model_class.friendly_id_config.uses? :history
-          model_class.instance_eval do
-            friendly_id_config.finder_methods = FriendlyId::Mobility::FinderMethods
-          end
-        end
         if model_class.friendly_id_config.uses? :finders
           warn "[FriendlyId] The Mobility add-on is not compatible with the Finders add-on. " \
             "Please remove one or the other from the #{model_class} model."
@@ -65,15 +60,6 @@ module FriendlyId
 
     def translation
       translation_for(::Mobility.locale)
-    end
-
-    module FinderMethods
-      include ::FriendlyId::History::FinderMethods
-
-      def exists_by_friendly_id?(id)
-        where(friendly_id_config.query_field => id).exists? ||
-          joins(:slugs).where(slug_history_clause(id)).exists?
-      end
     end
   end
 end
