@@ -41,7 +41,7 @@ module FriendlyId
 
     def set_friendly_id(text, locale = nil)
       ::Mobility.with_locale(locale || ::Mobility.locale) do
-        set_slug normalize_friendly_id(text)
+        super_set_slug normalize_friendly_id(text)
       end
     end
 
@@ -50,14 +50,21 @@ module FriendlyId
     end
 
     def set_slug(normalized_slug = nil)
-      super
-      changed.each do |change|
-        if change =~ /\A(?:#{friendly_id_config.base}|#{friendly_id_config.slug_column})_([a-z]{2}(_[a-z]{2})?)\Z/
-          locale, suffix = $1.split('_'.freeze)
-          locale = "#{locale}-#{suffix.upcase}".freeze if suffix
-          ::Mobility.with_locale(locale) { super }
-        end
+      (self.translations.map(&:locale).presence || [::Mobility.locale]).each do |locale|
+        ::Mobility.with_locale(locale) { super_set_slug(normalized_slug) }
       end
+    end
+
+    def super_set_slug(normalized_slug = nil)
+      if should_generate_new_friendly_id?
+        candidates = FriendlyId::Candidates.new(self, normalized_slug || send(friendly_id_config.base))
+        slug = slug_generator.generate(candidates) || resolve_friendly_id_conflict(candidates)
+        translation.send("#{friendly_id_config.slug_column}=", slug)
+      end
+    end
+
+    def translation
+      translation_for(::Mobility.locale)
     end
 
     module FinderMethods
